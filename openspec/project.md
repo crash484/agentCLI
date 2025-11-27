@@ -22,8 +22,9 @@ A customer support agent for a SaaS product. Handles user lookups, subscription 
 - **Infrastructure:** Cloudflare Agents SDK + Durable Objects
 - **AI Provider:** Vercel AI SDK (`ai` + `@ai-sdk/openai`) for streaming and model switching
 - **Schema Validation:** Zod
-- **Frontend:** Pre-built chat UI in `src/client/` using `assistant-ui` (not covered in course)
-- **Communication:** HTTP/SSE (via Agent `onRequest` handler)
+- **Frontend:** Custom dark-themed chat UI in `src/client/` (built from scratch, not covered in course)
+- **Communication:** WebSocket (via Agent `onConnect`, `onMessage`, `onClose` handlers)
+- **Client-Server Sync:** `useAgent` hook from `agents/react`
 - **Package Manager:** npm
 - **Local Dev:** `wrangler dev` (same code runs locally and in prod)
 
@@ -33,14 +34,15 @@ A customer support agent for a SaaS product. Handles user lookups, subscription 
 Use the base `Agent` class from `agents` package—NOT `AIChatAgent`. The `AIChatAgent` class abstracts too much, which defeats the educational goal.
 
 ```typescript
-import { Agent } from "agents";
+import { Agent, type Connection, type ConnectionContext } from "agents";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 export class SupportAgent extends Agent<Env, AgentState> {
   // Students build:
-  // - onRequest: handle HTTP requests, run agent loop
-  // - Agent loop: call streamText, handle tools, stream responses
+  // - onConnect: sync state on connection
+  // - onMessage: handle chat messages, run agent loop
+  // - Agent loop: call streamText, handle tools, stream responses via connection.send()
   // - State management: this.state, this.setState()
 }
 ```
@@ -49,16 +51,16 @@ export class SupportAgent extends Agent<Env, AgentState> {
 - **State persistence:** `this.state` / `this.setState()` automatically persists to Durable Objects
 - **WebSocket handling:** Built-in `onConnect`, `onMessage`, `onClose`
 - **SQL storage:** `this.sql` for structured data (users, tickets, etc.)
-- **Routing:** `routeAgentRequest` handles agent addressing
-- **React integration:** `useAgent` hook syncs state with frontend
+- **Routing:** `routeAgentRequest` handles agent addressing and WebSocket upgrades
+- **React integration:** `useAgent` hook syncs state with frontend via WebSocket
 
 ### What Students Build vs. What Cloudflare Provides
 | Students Build | Cloudflare Provides |
 |----------------|---------------------|
-| Tool definitions (Zod) | HTTP/WebSocket connections |
+| Tool definitions (Zod) | WebSocket connections |
 | Agent loop (while loop) | State persistence |
 | AI SDK streamText calls | Global routing |
-| Streaming via toUIMessageStreamResponse | Identity/addressing |
+| Streaming via connection.send() | Identity/addressing |
 | HITL approval flow | SQL storage |
 
 ### Local Development
@@ -82,6 +84,7 @@ Run `wrangler deploy` to push to Cloudflare's edge network. Students need a Clou
 - Tool definitions separate from execution logic
 - Agent loop as a simple while loop, not abstracted
 - Conversation state via `this.state` (Durable Objects)
+- WebSocket communication with JSON message protocol
 - Configuration via environment variables (`.dev.vars` locally, secrets in prod)
 
 ### File Structure
@@ -93,7 +96,11 @@ src/
     tools/          # Tool definitions and implementations
     db/             # Mock database seed data
     prompts/        # System prompts and templates
-  client/           # Pre-built React chat UI (not covered in course)
+  client/           # Custom React chat UI (dark theme, not covered in course)
+    App.tsx         # Root component with useAgent hook
+    components/     # ChatContainer, MessageList, ChatMessage, ChatInput
+    styles.css      # Dark theme CSS variables + Tailwind
+    types.ts        # Client-side message types
   evals/            # Evaluation test cases
 wrangler.toml       # Cloudflare configuration
 ```
@@ -130,8 +137,8 @@ wrangler.toml       # Cloudflare configuration
 - HITL required for any action involving money or account changes
 
 ## External Dependencies
-- `agents` - Cloudflare Agents SDK (base `Agent` class)
+- `agents` - Cloudflare Agents SDK (base `Agent` class, `useAgent` hook)
 - `ai` - Vercel AI SDK core (streamText, CoreMessage types)
 - `@ai-sdk/openai` - OpenAI provider for Vercel AI SDK
 - `zod` - Schema validation and tool definitions
-- `@assistant-ui/react` - Pre-built chat UI components (not covered in course)
+- `lucide-react` - Icon library for UI components

@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
-/* Base styles for the chat app */
+/* Dark theme CSS variables - inspired by Grok */
+:root {
+  --bg-primary: #0d0d0d;       /* Main background - near black */
+  --bg-secondary: #1a1a1a;     /* Input/card background */
+  --bg-tertiary: #262626;      /* Hover states */
+  --bg-assistant: #1e1e1e;     /* Assistant message bubble */
+  --text-primary: #ffffff;     /* Main text */
+  --text-secondary: #a0a0a0;   /* Muted text */
+  --text-placeholder: #6b6b6b; /* Placeholder text */
+  --accent-blue: #3b82f6;      /* User message bubble, buttons */
+  --accent-blue-hover: #2563eb;/* Button hover */
+  --border-subtle: #333333;    /* Borders */
+}
+
+/* Base styles */
 html,
 body,
 #root {
@@ -16,29 +30,24 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
-  background-color: #f5f5f5;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
-/* assistant-ui Thread container styles */
-.aui-root {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-.aui-thread-root {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
 }
 
-.aui-thread-viewport {
-  flex: 1;
-  overflow-y: auto;
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
 }
 
-.aui-composer-root {
-  border-top: 1px solid #e5e5e5;
-  padding: 1rem;
-  background: white;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-subtle);
 }

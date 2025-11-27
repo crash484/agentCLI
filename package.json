@@ -22,8 +22,6 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.72",
-    "@assistant-ui/react": "^0.11.41",
-    "@assistant-ui/react-markdown": "^0.11.5",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-slot": "^1.2.4",
