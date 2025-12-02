@@ -1,5 +1,4 @@
 import { evaluate } from "@lmnr-ai/lmnr";
-import { shellTools } from "../src/agent/tools/index.ts";
 import {
   toolsSelected,
   toolsAvoided,
@@ -7,7 +6,7 @@ import {
 } from "./evaluators.ts";
 import type { EvalData, EvalTarget } from "./types.ts";
 import dataset from "./data/shell-tools.json" with { type: "json" };
-import { singleTurnExecutor } from "./executors.ts";
+import { singleTurnWithMocks } from "./executors.ts";
 
 /**
  * Shell Tools Selection Evaluation
@@ -21,9 +20,9 @@ import { singleTurnExecutor } from "./executors.ts";
  * - negative: Must NOT use shell for non-shell tasks
  */
 
-// Executor that runs single-turn tool selection
+// Executor that runs single-turn tool selection with mocked tools
 const executor = async (data: EvalData) => {
-  return singleTurnExecutor(data, shellTools);
+  return singleTurnWithMocks(data);
 };
 
 // Run the evaluation
