@@ -6,6 +6,9 @@ import { MessageList, type Message } from "./components/MessageList.tsx";
 import { ToolCall, type ToolCallProps } from "./components/ToolCall.tsx";
 import { Spinner } from "./components/Spinner.tsx";
 import { Input } from "./components/Input.tsx";
+import { ToolApproval } from "./components/ToolApproval.tsx";
+import { TokenUsage } from "./components/TokenUsage.tsx";
+import type { ToolApprovalRequest, TokenUsageInfo } from "../types.ts";
 
 interface ActiveToolCall extends ToolCallProps {
   id: string;
@@ -20,6 +23,9 @@ export function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
+  const [pendingApproval, setPendingApproval] =
+    useState<ToolApprovalRequest | null>(null);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsageInfo | null>(null);
 
   const handleSubmit = useCallback(
     async (userInput: string) => {
@@ -71,6 +77,14 @@ export function App() {
             setStreamingText("");
             setActiveToolCalls([]);
           },
+          onToolApproval: (name, args) => {
+            return new Promise<boolean>((resolve) => {
+              setPendingApproval({ toolName: name, args, resolve });
+            });
+          },
+          onTokenUsage: (usage) => {
+            setTokenUsage(usage);
+          },
         });
 
         setConversationHistory(newHistory);
@@ -112,7 +126,7 @@ export function App() {
           </Box>
         )}
 
-        {activeToolCalls.length > 0 && (
+        {activeToolCalls.length > 0 && !pendingApproval && (
           <Box flexDirection="column" marginTop={1}>
             {activeToolCalls.map((tc) => (
               <ToolCall
@@ -126,14 +140,29 @@ export function App() {
           </Box>
         )}
 
-        {isLoading && !streamingText && activeToolCalls.length === 0 && (
+        {isLoading && !streamingText && activeToolCalls.length === 0 && !pendingApproval && (
           <Box marginTop={1}>
             <Spinner />
           </Box>
         )}
+
+        {pendingApproval && (
+          <ToolApproval
+            toolName={pendingApproval.toolName}
+            args={pendingApproval.args}
+            onResolve={(approved) => {
+              pendingApproval.resolve(approved);
+              setPendingApproval(null);
+            }}
+          />
+        )}
       </Box>
 
-      <Input onSubmit={handleSubmit} disabled={isLoading} />
+      {!pendingApproval && (
+        <Input onSubmit={handleSubmit} disabled={isLoading} />
+      )}
+
+      <TokenUsage usage={tokenUsage} />
     </Box>
   );
 }

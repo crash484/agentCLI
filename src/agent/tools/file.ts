@@ -1,5 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
+import fs from "fs/promises";
+import path from "path";
 
 /**
  * Read file contents
@@ -10,9 +12,17 @@ export const readFile = tool({
   inputSchema: z.object({
     path: z.string().describe("The path to the file to read"),
   }),
-  execute: async ({ path }: { path: string }) => {
-    // Stub implementation - will be replaced with real fs operations
-    return `[Stub] Contents of ${path}`;
+  execute: async ({ path: filePath }: { path: string }) => {
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      return content;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        return `Error: File not found: ${filePath}`;
+      }
+      return `Error reading file: ${err.message}`;
+    }
   },
 });
 
@@ -26,9 +36,24 @@ export const writeFile = tool({
     path: z.string().describe("The path to the file to write"),
     content: z.string().describe("The content to write to the file"),
   }),
-  execute: async ({ path, content }: { path: string; content: string }) => {
-    // Stub implementation
-    return `[Stub] Wrote ${content.length} characters to ${path}`;
+  execute: async ({
+    path: filePath,
+    content,
+  }: {
+    path: string;
+    content: string;
+  }) => {
+    try {
+      // Create parent directories if they don't exist
+      const dir = path.dirname(filePath);
+      await fs.mkdir(dir, { recursive: true });
+
+      await fs.writeFile(filePath, content, "utf-8");
+      return `Successfully wrote ${content.length} characters to ${filePath}`;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      return `Error writing file: ${err.message}`;
+    }
   },
 });
 
@@ -45,8 +70,22 @@ export const listFiles = tool({
       .default("."),
   }),
   execute: async ({ directory }: { directory: string }) => {
-    // Stub implementation
-    return `[Stub] Files in ${directory}:\n- file1.ts\n- file2.ts\n- README.md`;
+    try {
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      const items = entries.map((entry) => {
+        const type = entry.isDirectory() ? "[dir]" : "[file]";
+        return `${type} ${entry.name}`;
+      });
+      return items.length > 0
+        ? items.join("\n")
+        : `Directory ${directory} is empty`;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        return `Error: Directory not found: ${directory}`;
+      }
+      return `Error listing directory: ${err.message}`;
+    }
   },
 });
 
@@ -59,8 +98,16 @@ export const deleteFile = tool({
   inputSchema: z.object({
     path: z.string().describe("The path to the file to delete"),
   }),
-  execute: async ({ path }: { path: string }) => {
-    // Stub implementation
-    return `[Stub] Deleted ${path}`;
+  execute: async ({ path: filePath }: { path: string }) => {
+    try {
+      await fs.unlink(filePath);
+      return `Successfully deleted ${filePath}`;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        return `Error: File not found: ${filePath}`;
+      }
+      return `Error deleting file: ${err.message}`;
+    }
   },
 });
