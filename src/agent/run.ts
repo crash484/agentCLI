@@ -98,16 +98,7 @@ export async function runAgent(
     const responseMessages = await result.response;
     messages.push(...responseMessages.messages);
 
-    // Process tool calls sequentially with approval for each
-    let rejected = false;
     for (const tc of toolCalls) {
-      const approved = await callbacks.onToolApproval(tc.toolName, tc.args);
-
-      if (!approved) {
-        rejected = true;
-        break;
-      }
-
       const result = await executeTool(tc.toolName, tc.args);
       callbacks.onToolCallEnd(tc.toolName, result);
 
@@ -122,10 +113,6 @@ export async function runAgent(
           },
         ],
       });
-    }
-
-    if (rejected) {
-      break;
     }
   }
 
