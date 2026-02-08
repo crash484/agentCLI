@@ -1,4 +1,4 @@
-import { generateText, stepCountIs, tool, type ToolSet } from "ai";
+import { generateText, stepCountIs, tool, type ModelMessage, type ToolSet } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 
@@ -9,6 +9,9 @@ import type {
   MultiTurnResult,
 } from "./types.ts";
 import { buildMessages, buildMockedTools } from "./utils.ts";
+import { buildMockedTools } from './utils';
+import { SYSTEM_PROMPT } from "../dist/agent/system/prompt";
+import { ToolName } from '../src/agent/executeTool';
 
 /**
  * Tool definitions for mocked single-turn evaluations.
@@ -101,3 +104,56 @@ export async function singleTurnWithMocks(
  * Multi-turn executor with mocked tools.
  * Runs a complete agent loop with tools returning fixed values.
  */
+
+export async function multiTurnWithMocks(
+  data: MultiTurnEvalData,
+):Promise<MultiTurnResult> {
+  const tools= buildMockedTools(data.mockTools);
+
+  //build messages from prompt or prefilled history
+  const messages: ModelMessage[] = data.messages ?? [
+    { role:"system", content: SYSTEM_PROMPT},
+    { role:"user", content:data.prompt! },
+  ];
+
+  const result = await generateText({
+    model: google(data.config?.model ?? "gemini-2.5-flash"),
+    messages,
+    tools,
+    stopWhen:stepCountIs(data.config?.maxSteps ?? 20),
+  });
+  
+  //extract all tool calls in order from steps
+
+  const allToolCalls: string[] = [];
+  const steps = result.steps.map((step)=>{
+    const stepToolCalls = (step.toolCalls ?? []).map((tc)=>{
+      allToolCalls.push(tc.toolName);
+      return{
+        toolName:tc.toolName,
+        args: "args" in tc ? tc.args :{},
+      };
+    });
+
+    const stepToolResults = (step.toolResults ?? []).map((tr) => ({
+      toolName: tr.toolName,
+      result: "result" in tr ? tr.result : tr,
+    }));
+  
+
+  return{
+    toolCalls: stepToolCalls.length > 0 ? stepToolCalls : undefined,
+      toolResults: stepToolResults.length > 0 ? stepToolResults : undefined,
+      text: step.text || undefined,
+  }
+  });
+
+  const toolsUsed = [...new Set(allToolCalls)];
+
+  return {
+    text: result.text,
+    steps,
+    toolsUsed,
+    toolCallOrder: allToolCalls,
+  };
+}

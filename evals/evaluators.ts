@@ -8,6 +8,7 @@ import type {
   MultiTurnTarget,
   MultiTurnResult,
 } from "./types.ts";
+import { google } from "@ai-sdk/google";
 
 /**
  * Evaluator: Precision/recall score for tool selection.
@@ -96,4 +97,61 @@ export function toolOrderCorrect(
   }
 
   return expectedIdx / target.expectedToolOrder.length;
+}
+
+const judgeSchema = z.object({
+  score:z
+    .number()
+    .min(1)
+    .max(10)
+    .describe("Score from 1-10 where 10 us perfect"),
+  reason: z.string().describe("Brief explanation for the score"),
+});
+
+/**
+ * Evaluator: LLM-as-judge for output quality.
+ * Uses structured output to reliably assess if the agent's response is correct.
+ * Returns a score from 0-1 (internally uses 1-10 scale divided by 10).
+ */
+
+export async function llmJudge(
+  output: MultiTurnResult,
+  target: MultiTurnTarget,
+):Promise<number> {
+  const result = await generateObject({
+    model:google("gemini-2.5-flash"),
+    schema:judgeSchema,
+    schemaName:"evaluation",
+    providerOptions: {
+      google:{
+        reasoningEffort:"high",
+      },
+    },
+    schemaDescription:"Evaluation of an AI agent response",
+    messages:[
+      {
+        role:"system",
+        content:`You are an evaluation judge. score the agent's response on a scale of 1-10.
+        
+       Scoring criteria:
+      - 10: Response fully addresses the task using tool results correctly
+      - 7-9: Response is mostly correct with minor issues
+      - 4-6: Response partially addresses the task
+      - 1-3: Response is mostly incorrect or irrelevant`,
+      },
+      {
+        role: "user",
+        content: `Task: ${target.originalTask}
+
+        Tools called: ${JSON.stringify(output.toolCallOrder)}
+        Tool results provided: ${JSON.stringify(target.mockToolResults)}
+
+        Agent's final response:
+        ${output.text}
+
+        Evaluate if this response correctly uses the tool results to answer the task.`,
+      },
+    ],
+  });
+    return result.object.score / 10;
 }
