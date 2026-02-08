@@ -1,4 +1,4 @@
-import {tools} from "./tools/index.ts"
+import {tools} from "./tools/index"
 
 export type ToolName = keyof typeof tools;
 

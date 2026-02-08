@@ -9,6 +9,14 @@ import {tools} from "./tools/index.ts"
 import { executeTool } from "./executeTool.ts";
 import { filterCompatibleMessages } from "./system/filterMessages.ts";
 import { Input } from '../ui/components/Input';
+import {
+  estimateMessagesTokens,
+  getModelLimits,
+  isOverThreshold,
+  calculateUsagePercentage,
+  compactConversation,
+  DEFAULT_THRESHOLD,
+} from "./context/index.ts";
 
 
 const MODEL_NAME="gemini-2.5-flash"
@@ -23,16 +31,47 @@ export const runAgent = async(
     conversationHistory: ModelMessage[], 
     callbacks: AgentCallbacks
  ):Promise<ModelMessage[]>=>{
-    
-    const workingHistory = filterCompatibleMessages(conversationHistory);
+    const modelLimits = getModelLimits(MODEL_NAME);
+
+    let workingHistory = filterCompatibleMessages(conversationHistory);
 
     const messages:ModelMessage[]=[
-        {role:"system",content:"SYSTEM_PROMPT"},
+        {role:"system",content:SYSTEM_PROMPT},
         ...workingHistory,
         {role:"user", content: userMessage},
     ];
+    const preCheckTokens = estimateMessagesTokens([
+  { role: "system", content: SYSTEM_PROMPT },
+  ...workingHistory,
+  { role: "user", content: userMessage },
+]);
 
+
+        if (isOverThreshold(preCheckTokens.total, modelLimits.contextWindow)) {
+        // Compact the conversation
+        workingHistory = await compactConversation(workingHistory, MODEL_NAME);
+        }
     let fullResponse = "";
+
+      // Report initial token usage
+  const reportTokenUsage = () => {
+    if (callbacks.onTokenUsage) {
+      const usage = estimateMessagesTokens(messages);
+      callbacks.onTokenUsage({
+        inputTokens: usage.input,
+        outputTokens: usage.output,
+        totalTokens: usage.total,
+        contextWindow: modelLimits.contextWindow,
+        threshold: DEFAULT_THRESHOLD,
+        percentage: calculateUsagePercentage(
+          usage.total,
+          modelLimits.contextWindow,
+        ),
+      });
+    }
+  };
+
+  reportTokenUsage();
 
     while(true){
         const result = streamText({
@@ -113,9 +152,8 @@ export const runAgent = async(
         }
     }
 
+
     callbacks.onComplete(fullResponse);
      
     return messages;
  }
-
-runAgent('what is the current time right now , convert it to ist');
