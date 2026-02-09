@@ -130,30 +130,46 @@ export const runAgent = async(
         if(finishReason !== "tool-calls" || toolCalls.length === 0){
             const responseMessages = await result.response;
             messages.push(...responseMessages.messages);
+            reportTokenUsage();
             break;
         }
 
         const responseMessage = await result.response;
         messages.push(...responseMessage.messages);
+        reportTokenUsage();
 
-        for(const tc of toolCalls){
-            const result = await executeTool(tc.toolName,tc.args);
-            callbacks.onToolCallEnd(tc.toolName,result);
+  let rejected = false;
+    for (const tc of toolCalls) {
+      const approved = await callbacks.onToolApproval(tc.toolName, tc.args);
 
-            messages.push({
-                role:"tool",
-                content: [{
-                    type:"tool-result",
-                    toolCallId:tc.toolCallId,
-                    toolName: tc.toolName,
-                    output:{type:"text",value:result},
-                }],
-            });
-        }
+      if (!approved) {
+        rejected = true;
+        break;
+      }
+
+      const result = await executeTool(tc.toolName, tc.args);
+      callbacks.onToolCallEnd(tc.toolName, result);
+
+      messages.push({
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            output: { type: "text", value: result },
+          },
+        ],
+      });
+      reportTokenUsage();
     }
 
+    if (rejected) {
+      break;
+    }
+  }
 
-    callbacks.onComplete(fullResponse);
-     
-    return messages;
+  callbacks.onComplete(fullResponse);
+
+  return messages;
  }
